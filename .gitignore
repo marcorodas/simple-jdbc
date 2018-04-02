@@ -405,3 +405,4 @@ $RECYCLE.BIN/
 
 
 # End of https://www.gitignore.io/api/java,node,maven,linux,eclipse,windows,netbeans,intellij,notepadpp,sublimetext,androidstudio
+/nbproject/
