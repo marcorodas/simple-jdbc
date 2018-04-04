@@ -14,12 +14,17 @@ public class SqlQueryTest extends TestBase {
     }
 
     private SqlQuery<Consensus> getConsensusQuery() {
-        return new SqlQuery<Consensus>().setSql(new String[]{
+        return new SqlQuery<>(Consensus.class).setSql(new String[]{
             "SELECT",
             "   repeat_consensus_id,  repeat_class,  repeat_type, repeat_consensus",
             "   FROM repeat_consensus",
             "	WHERE repeat_consensus <> :repeat_consensus",
             "	LIMIT 5"
+        }).setMapper((mapper, result, rs) -> {
+            mapper.map(result::setRepeat_consensus_id, rs::getInt)
+                    .map(result::setRepeat_class, rs::getString)
+                    .map(result::setRepeat_type, rs::getString)
+                    .map(result::setRepeat_consensus, rs::getString);
         }).addParameter("repeat_consensus", "N");
     }
 
@@ -31,32 +36,17 @@ public class SqlQueryTest extends TestBase {
             consensus.getRepeat_consensus()
         });
     }
-
+ 
     @Test
     public void testOneObject() throws Exception {
-        Consensus consensus = this.getConsensusQuery().execute(Consensus.class, (rs, result) -> {
-            if (rs.next()) {
-                result.setRepeat_consensus_id(rs.getInt("repeat_consensus_id"));
-                result.setRepeat_class(rs.getString("repeat_class"));
-                result.setRepeat_type(rs.getString("repeat_type"));
-                result.setRepeat_consensus(rs.getString("repeat_consensus"));
-            }
-        });
-        this.print(consensus);
+        this.print(this.getConsensusQuery().executeFirst());
     }
 
     @Test
     public void testListObject() throws Exception {
-        this.getConsensusQuery().execute((rs, list) -> {
-            while (rs.next()) {
-                Consensus consensus = new Consensus()
-                        .setRepeat_consensus_id(rs.getInt("repeat_consensus_id"))
-                        .setRepeat_class(rs.getString("repeat_class"))
-                        .setRepeat_type(rs.getString("repeat_type"))
-                        .setRepeat_consensus(rs.getString("repeat_consensus"));
-                list.add(consensus);
-            }
-        }).forEach(this::print);
+        this.getConsensusQuery()
+                .executeList()
+                .forEach(this::print);
     }
 
 }

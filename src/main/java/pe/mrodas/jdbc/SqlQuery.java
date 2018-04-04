@@ -3,6 +3,7 @@ package pe.mrodas.jdbc;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -70,24 +71,6 @@ public class SqlQuery<T> extends DBLayer {
 
     /**
      * Lectura de un ResultSet: <i>(Implementación)</i>
-     * <pre><code>(ResultSet rs) -> {
-     *  if (rs.next()) {
-     *      obj.set...(rs.get...(...));
-     *      obj.set...(rs.get...(...));
-     *  }
-     * }</code></pre>
-     *
-     * @author Marco Rodas
-     * @param <T> tipo devuelto por la implementación de esta clase
-     */
-    public interface ExecutorClass<T> {
-
-        void execute(ResultSet rs, T result) throws Exception;
-
-    }
-
-    /**
-     * Lectura de un ResultSet: <i>(Implementación)</i>
      * <pre><code>
      * (ResultSet rs,{@code List<T> list}) -> {
      *  while (rs.next()) {
@@ -104,6 +87,11 @@ public class SqlQuery<T> extends DBLayer {
         void execute(ResultSet rs, List<T> list) throws Exception;
     }
 
+    public interface MapperConfig<T> {
+
+        void config(SqlMapper mapper, T result, ResultSet rs) throws Exception;
+    }
+
     public enum AutoGenKey {
         RETURN, NO_RETURN;
     }
@@ -113,8 +101,19 @@ public class SqlQuery<T> extends DBLayer {
     private final HashMap<String, Object> parameters = new HashMap<>();
     private final List<String> parameterNames = new ArrayList<>();
     private Optional<String> nullParameter = null;
+    private MapperConfig<T> config;
+    private Class<T> clazz;
 
     public SqlQuery() {
+    }
+
+    public SqlQuery(Class<T> clazz) {
+        this.clazz = clazz;
+    }
+
+    public SqlQuery(Class<T> clazz, Connection connection, boolean autoCloseConnection) {
+        super(connection, autoCloseConnection);
+        this.clazz = clazz;
     }
 
     public SqlQuery(Connection connection, boolean autoCloseConnection) {
@@ -161,6 +160,11 @@ public class SqlQuery<T> extends DBLayer {
         return setSql(String.join(" ", sql), generatedKeys);
     }
 
+    public SqlQuery<T> setMapper(MapperConfig<T> config) {
+        this.config = config;
+        return this;
+    }
+
     /**
      * Devuelve el objeto query con formato
      *
@@ -197,7 +201,7 @@ public class SqlQuery<T> extends DBLayer {
         return this;
     }
 
-    private int findWordSeparator(String str) {
+    private int getIndexWordSeparator(String str) {
         for (int i = 0; i < str.length(); i++) {
             char c = str.charAt(i);
             if (c == ',' || c == ' ' || c == ')' || c == '\n' || c == '\r' || c == ';') {
@@ -212,7 +216,7 @@ public class SqlQuery<T> extends DBLayer {
         String preparedQuery = queryParts[0];
         for (int i = 1; i < queryParts.length; i++) {
             String queryPart = queryParts[i];
-            int indexWordSeparator = findWordSeparator(queryPart);
+            int indexWordSeparator = this.getIndexWordSeparator(queryPart);
             String paramName = queryPart.substring(0, indexWordSeparator);
             parameterNames.add(paramName);
             preparedQuery += "?" + queryPart.substring(indexWordSeparator, queryPart.length());
@@ -222,14 +226,14 @@ public class SqlQuery<T> extends DBLayer {
 
     private void checkParameters() throws Exception {
         if (nullParameter != null) {
-            String msg = nullParameter.orElse("").isEmpty()
-                    ? "No se debe ingresar un parámetro nulo"
-                    : String.format("El parámetro %s no debe ser nulo", nullParameter.get());
+            String msg = nullParameter.orElse("").trim();
+            msg = String.format("Parameter%s can't be null", msg.isEmpty() ? "" : (" '" + msg + "'"));
             throw Adapter.getException(whoIam(), msg);
         }
         for (String parameterName : parameterNames) {
             if (!parameters.keySet().contains(parameterName)) {
-                throw Adapter.getException(whoIam(), String.format("Falta agregar el parámetro '%s'", parameterName));
+                String msg = String.format("Parameter '%s' is undefined", parameterName);
+                throw Adapter.getException(whoIam(), msg);
             }
         }
     }
@@ -265,7 +269,7 @@ public class SqlQuery<T> extends DBLayer {
                     statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
                 }
             } catch (Exception e) {
-                throw Adapter.getException(e, whoIam(), name, value.toString());
+                throw Adapter.getException(e, this.whoIam(), name, value.toString());
             }
         }
     }
@@ -280,30 +284,28 @@ public class SqlQuery<T> extends DBLayer {
     }
 
     private PreparedStatement getStatement(String preparedQuery) throws Exception {
-        PreparedStatement statement;
         try {
-            statement = returnGeneratedKeys
+            return returnGeneratedKeys
                     ? connection.prepareStatement(preparedQuery, Statement.RETURN_GENERATED_KEYS)
                     : connection.prepareStatement(preparedQuery);
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw Adapter.getException(e, preparedQuery);
         }
-        return statement;
     }
 
     private PreparedStatement executeStatement() throws Exception {
-        Adapter.checkNotNullOrEmpty(query, "El query no puede ser nulo o vacío");
-        checkConnection();
-        String preparedQuery = prepareQuery();
-        checkParameters();
-        PreparedStatement statement = getStatement(preparedQuery);
-        registerParameters(statement);
+        Adapter.checkNotNullOrEmpty(query, "Query can't be null or empty");
+        this.checkConnection();
+        String preparedQuery = this.prepareQuery();
+        this.checkParameters();
+        PreparedStatement statement = this.getStatement(preparedQuery);
+        this.registerParameters(statement);
         try {
             statement.execute();
-        } catch (Exception e) {
-            throw Adapter.getException(e, whoIam());
+            return statement;
+        } catch (SQLException e) {
+            throw Adapter.getException(e, this.whoIam());
         }
-        return statement;
     }
 
     /**
@@ -315,33 +317,16 @@ public class SqlQuery<T> extends DBLayer {
      * @throws Exception Si T es instancia de List o si hay error al ejecutar
      */
     public T execute(Executor<T> executor) throws Exception {
-        Adapter.checkNotNull(executor, whoIam(), "El objecto executor no puede ser nulo");
-        PreparedStatement statement = executeStatement();
-        T result = null;
+        Adapter.checkNotNull(executor, whoIam(), "The object executor can't be null");
         try {
-            result = executor.execute(statement.getResultSet());
-            Adapter.checkIsNotList(result, whoIam(), Adapter.getErrorTypeIsList());
+            T result = executor.execute(this.executeStatement().getResultSet());
+            Adapter.checkIsNotList(result, this.whoIam(), Adapter.getErrorTypeIsList());
+            return result;
         } catch (Exception e) {
-            throw Adapter.getException(e, whoIam());
+            throw Adapter.getException(e, this.whoIam());
         } finally {
-            closeConnection();
+            this.closeConnection();
         }
-        return result;
-    }
-
-    public T execute(Class<T> clazz, ExecutorClass<T> executor) throws Exception {
-        Adapter.checkNotNull(executor, whoIam(), "El objecto executor no puede ser nulo");
-        PreparedStatement statement = executeStatement();
-        T result = clazz.newInstance();
-        try {
-            executor.execute(statement.getResultSet(), result);
-            Adapter.checkIsNotList(result, whoIam(), Adapter.getErrorTypeIsList());
-        } catch (Exception e) {
-            throw Adapter.getException(e, whoIam());
-        } finally {
-            closeConnection();
-        }
-        return result;
     }
 
     /**
@@ -353,17 +338,45 @@ public class SqlQuery<T> extends DBLayer {
      * @throws Exception Si hay error al ejecutar
      */
     public List<T> execute(ExecutorList<T> executor) throws Exception {
-        Adapter.checkNotNull(executor, whoIam(), "El objecto executor no puede ser nulo");
-        PreparedStatement statement = executeStatement();
-        List<T> result = new ArrayList<>();
+        Adapter.checkNotNull(executor, this.whoIam(), "The object executor can't be null");
         try {
-            executor.execute(statement.getResultSet(), result);
+            List<T> result = new ArrayList<>();
+            executor.execute(this.executeStatement().getResultSet(), result);
+            return result;
         } catch (Exception e) {
-            throw Adapter.getException(e, whoIam());
+            throw Adapter.getException(e, this.whoIam());
         } finally {
-            closeConnection();
+            this.closeConnection();
         }
-        return result;
+    }
+
+    public T executeFirst() throws Exception {
+        Adapter.checkNotNull(clazz, this.whoIam(), "Include the class object in constructor");
+        Adapter.checkNotNull(config, this.whoIam(), "The object mapper is not set");
+        return this.execute(rs -> {
+            SqlMapper mapper = new SqlMapper(rs.getMetaData());
+            T result = null;
+            if (rs.next()) {
+                result = clazz.newInstance();
+                config.config(mapper, result, rs);
+                mapper.apply();
+            }
+            return result;
+        });
+    }
+
+    public List<T> executeList() throws Exception {
+        Adapter.checkNotNull(clazz, this.whoIam(), "Include the class object in constructor");
+        Adapter.checkNotNull(config, this.whoIam(), "The object mapper is not set");
+        return this.execute((rs, list) -> {
+            SqlMapper mapper = new SqlMapper(rs.getMetaData());
+            while (rs.next()) {
+                T result = clazz.newInstance();
+                config.config(mapper, result, rs);
+                mapper.apply();
+                list.add(result);
+            }
+        });
     }
 
     /**

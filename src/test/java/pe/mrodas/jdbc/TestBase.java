@@ -5,7 +5,6 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Enumeration;
-import pe.mrodas.jdbc.DBLayer;
 import org.junit.After;
 import org.junit.Before;
 
