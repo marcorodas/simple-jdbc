@@ -40,8 +40,10 @@ public abstract class DBLayer {
                     }
                 }
             } else {
-                InputStream file = getClass().getClassLoader().getResourceAsStream(propertyFile);
-                properties.load(file);
+                ClassLoader cl = getClass().getClassLoader();
+                try (InputStream file = cl.getResourceAsStream(propertyFile)) {
+                    properties.load(file);
+                }
             }
             return properties;
         }
@@ -172,7 +174,9 @@ public abstract class DBLayer {
     protected void closeConnection() {
         if (autoCloseConnection) {
             try {
-                connection.close();
+                if (connection != null) {
+                    connection.close();
+                }
             } catch (SQLException ex) {
                 System.err.println(ex);
             }
