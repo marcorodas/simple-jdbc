@@ -1,4 +1,4 @@
-package pe.mrodas.jdbc;
+package pe.mrodas.helper;
 
 import com.fasterxml.uuid.Generators;
 
