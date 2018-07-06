@@ -4,10 +4,10 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Convenience class to handle 2 situations:
@@ -16,23 +16,24 @@ import java.util.stream.Stream;
  */
 public class SqlString {
 
-    private final Stream<String> stream;
+    private final List<String> lines;
 
     public SqlString(String file) throws InvalidPathException, IOException {
-        Path pathFile = Paths.get(file);
-        stream = Files.readAllLines(pathFile, Charset.defaultCharset())
-                .stream();
+        this.lines = Files.readAllLines(Paths.get(file), Charset.defaultCharset());
     }
 
     public String toStrArray() {
-        return stream.map(s -> "\"" + s + "\"")
+        return lines.stream().map(s -> "\"" + s + "\"")
                 .collect(Collectors.joining(",\n"));
     }
 
     public String toSql() {
-        return stream.map(s -> {
-            String line = s.trim();
-            return line.substring(1, line.length() - 2);
-        }).collect(Collectors.joining("\n"));
+        List<String> sqlLines = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i).trim();
+            int endIndex = i == lines.size() - 1 ? 1 : 2;
+            sqlLines.add(line.substring(1, line.length() - endIndex));
+        }
+        return sqlLines.stream().collect(Collectors.joining("\n"));
     }
 }
