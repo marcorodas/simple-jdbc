@@ -268,7 +268,7 @@ public class SqlQuery<T> extends DBLayer {
                     statement.setTime(index, Time.valueOf((LocalTime) value));
                 } else if (objClass == LocalDateTime.class) {
                     statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
-                } else if (objClass == InputStream.class) {
+                } else if (value instanceof InputStream) {
                     statement.setBlob(index, (InputStream) value);
                 }
             } catch (Exception e) {
