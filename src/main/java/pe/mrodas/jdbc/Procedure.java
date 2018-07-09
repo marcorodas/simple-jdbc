@@ -1,5 +1,6 @@
 package pe.mrodas.jdbc;
 
+import java.io.InputStream;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.JDBCType;
@@ -213,6 +214,8 @@ public class Procedure<T> extends DBLayer {
             statement.setTime(name, Time.valueOf((LocalTime) value));
         } else if (objClass == LocalDateTime.class) {
             statement.setTimestamp(name, Timestamp.valueOf((LocalDateTime) value));
+        } else if (objClass == InputStream.class) {
+            statement.setBlob(name, (InputStream) value);
         }
     }
 

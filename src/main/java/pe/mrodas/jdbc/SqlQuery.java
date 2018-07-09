@@ -1,5 +1,6 @@
 package pe.mrodas.jdbc;
 
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -267,6 +268,8 @@ public class SqlQuery<T> extends DBLayer {
                     statement.setTime(index, Time.valueOf((LocalTime) value));
                 } else if (objClass == LocalDateTime.class) {
                     statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
+                } else if (objClass == InputStream.class) {
+                    statement.setBlob(index, (InputStream) value);
                 }
             } catch (Exception e) {
                 throw Adapter.getException(e, this.whoIam(), name, value.toString());
