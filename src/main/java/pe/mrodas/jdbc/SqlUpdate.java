@@ -6,12 +6,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- *
- * @author skynet
+ * <pre>{@code UPDATE <table> SET <fieldsToUpdate> WHERE <filterFields>}</pre>
+ * @author Marco Rodas
  */
 public class SqlUpdate implements SqlQuery.Save {
 
-    private final String query = "UPDATE <table> SET <fieldsToUpdate> WHERE <filterFields>";
+    private final static String QUERY = "UPDATE <table> SET <fieldsToUpdate> WHERE <filterFields>";
     private final Map<String, Object> fieldsMap = new HashMap<>();
     private final Map<String, Object> filterFieldsMap = new HashMap<>();
     private final String table;
@@ -56,13 +56,13 @@ public class SqlUpdate implements SqlQuery.Save {
     }
 
     public int execute(Connection connection) throws Exception {
-        String fieldsToUpdate = fieldsMap.keySet().stream().map(fieldName -> {
-            return fieldName + " = :" + fieldName;
-        }).collect(Collectors.joining(", "));
-        String filterFields = filterFieldsMap.keySet().stream().map(fieldName -> {
-            return fieldName + " = :" + fieldName;
-        }).collect(Collectors.joining(" AND "));
-        String preparedQuery = query.replace("<table>", table)
+        String fieldsToUpdate = fieldsMap.keySet().stream()
+                .map(fieldName -> fieldName + " = :" + fieldName)
+                .collect(Collectors.joining(", "));
+        String filterFields = filterFieldsMap.keySet().stream()
+                .map(fieldName -> fieldName + " = :" + fieldName)
+                .collect(Collectors.joining(" AND "));
+        String preparedQuery = QUERY.replace("<table>", table)
                 .replace("<fieldsToUpdate>", fieldsToUpdate)
                 .replace("<filterFields>", filterFields);
         SqlQuery sqlQuery = (connection == null ? new SqlQuery() : new SqlQuery(connection, false))

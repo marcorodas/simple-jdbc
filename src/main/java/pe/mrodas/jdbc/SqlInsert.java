@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- *
- * @author skynet
+ * <pre>{@code INSERT INTO <table>(<fieldNames>) VALUES(<fieldValueTags>)}</pre>
+ * @author Marco Rodas
  */
 public class SqlInsert implements SqlQuery.Save {
 
@@ -16,7 +16,7 @@ public class SqlInsert implements SqlQuery.Save {
         void set(int id);
     }
 
-    private final String query = "INSERT INTO <table>(<fieldNames>) VALUES(<fieldValueTags>)";
+    private final static String QUERY = "INSERT INTO <table>(<fieldNames>) VALUES(<fieldValueTags>)";
     private final Map<String, Object> fieldsMap = new HashMap<>();
     private final String table;
     private SqlQuery.AutoGenKey autoGenKey;
@@ -60,7 +60,7 @@ public class SqlInsert implements SqlQuery.Save {
         String fieldNames = fieldsMap.keySet().stream().collect(Collectors.joining(","));
         String fieldValueTags = fieldsMap.keySet().stream().map(fieldName -> ":" + fieldName)
                 .collect(Collectors.joining(", "));
-        String preparedQuery = query.replace("<table>", table)
+        String preparedQuery = QUERY.replace("<table>", table)
                 .replace("<fieldNames>", fieldNames)
                 .replace("<fieldValueTags>", fieldValueTags);
         SqlQuery sqlQuery = connection == null ? new SqlQuery() : new SqlQuery(connection, false);

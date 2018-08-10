@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
  * Convenience class to handle 2 situations:
  * 1. Converts .sql to String[] for SqlQuery<...>.setSql(new String[]{...})
  * 2. Converts String[] to .sql
+ *
+ * @author Marco Rodas
  */
 public class SqlString {
 

@@ -10,6 +10,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -19,18 +20,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- *
  * @author Marco Rodas
  */
 public class Adapter {
 
-    public static interface Batch {
+    public interface Batch {
 
         void execute(Connection connection) throws Exception;
 
     }
 
-    public static interface BatchGet<T> {
+    public interface BatchGet<T> {
 
         T execute(Connection connection) throws Exception;
 
@@ -47,9 +47,9 @@ public class Adapter {
     }
 
     private static final String ERROR_TYPE_IS_LIST = String.join(" ", new String[]{
-        "No use: Procedure<List<ElementType>> proc = new Procedure<>();",
-        "- Use en cambio: Procedure<ElementType> proc = new Procedure<>();",
-        String.format("(e:%s)", "Message body writer NOT found")
+            "No use: Procedure<List<ElementType>> proc = new Procedure<>();",
+            "- Use en cambio: Procedure<ElementType> proc = new Procedure<>();",
+            String.format("(e:%s)", "Message body writer NOT found")
     });
 
     public static String getErrorTypeIsList() {
@@ -57,9 +57,9 @@ public class Adapter {
     }
 
     public static String getPropertyAsString(Properties prop) {
-        return prop.entrySet().stream().map(entry -> {
-            return String.format("%s = %s", entry.getKey(), entry.getValue());
-        }).collect(Collectors.joining("; "));
+        return prop.entrySet().stream()
+                .map(entry -> String.format("%s = %s", entry.getKey(), entry.getValue()))
+                .collect(Collectors.joining("; "));
     }
 
     protected static <T> T throwIfCondition(Function<T, Boolean> condition, T obj, String... msgs) throws Exception {
@@ -109,7 +109,7 @@ public class Adapter {
 
     private static boolean isLibraryEnclosedClass(Class oClass) {
         Class enclosingClass = oClass.getEnclosingClass();
-        return enclosingClass == null ? false : isLibraryClass(enclosingClass);
+        return enclosingClass != null && isLibraryClass(enclosingClass);
     }
 
     private static boolean isLibraryClass(Class oClass) {
@@ -140,12 +140,20 @@ public class Adapter {
     }
 
     public static Exception getException(Exception ex, String... msgs) {
-        String customMsgs = String.join(" - ", msgs);
-        String msg = customMsgs.isEmpty() ? "" : " ".concat(customMsgs);
-        msg += ex == null ? "" : String.format(" (e:%s)", ex.getMessage());
-        msg = getCaller().concat(msg.isEmpty() ? "" : ":".concat(msg));
-        return new Exception(msg);
+        List<String> list = new ArrayList<>();
+        if (msgs != null) {
+            list.add(String.join(" - ", msgs));
+        }
+        if (ex != null) {
+            list.add(String.format("(e:%s)", ex.getMessage()));
+        }
+        String caller = getCaller();
+        if (caller != null) {
+            list.add(0, list.isEmpty() ? caller : (caller + ":"));
+        }
+        return new Exception(String.join(" ", list));
     }
+
 
     public static Connection getConnection() throws Exception {
         return DBLayer.Connector.getInstance().getConnection();
@@ -159,7 +167,7 @@ public class Adapter {
      * @param batch
      * @throws Exception
      */
-    public static final void batch(Batch batch) throws Exception {
+    public static void batch(Batch batch) throws Exception {
         try (Connection connection = getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -180,7 +188,7 @@ public class Adapter {
      * @param batch
      * @throws Exception
      */
-    public static final <T> T batch(BatchGet<T> batch) throws Exception {
+    public static <T> T batch(BatchGet<T> batch) throws Exception {
         try (Connection connection = getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -194,11 +202,13 @@ public class Adapter {
         }
     }
 
+    @Deprecated
+    @SuppressWarnings("unchecked")
     public static <E> E[] listToArray(List<E> list) {
         if (list.isEmpty()) {
             return null;
         } else {
-            Class objClass = list.get(0).getClass();
+            Class<?> objClass = list.get(0).getClass();
             E[] genericNewArray = (E[]) Array.newInstance(objClass, list.size());
             return list.toArray(genericNewArray);
         }
@@ -206,15 +216,14 @@ public class Adapter {
 
     public static List<Integer> parseIdStringList(String strList, String separator) {
         String[] idArray = Optional.ofNullable(strList).orElse("").trim().split(Optional.ofNullable(separator).orElse(","));
-        return Arrays.asList(idArray).stream()
-                .filter(item -> onlyDigits(item))
+        return Arrays.stream(idArray)
+                .filter(Adapter::onlyDigits)
                 .map(item -> Integer.parseInt(item.trim()))
                 .collect(Collectors.toList());
     }
 
     public static boolean onlyDigits(String digits) {
-        return digits == null || digits.trim().isEmpty()
-                ? false : digits.trim().matches("\\d+");
+        return digits != null && !digits.trim().isEmpty() && digits.trim().matches("\\d+");
     }
 
     public static Integer parseInt(String integer, Integer valueIfUnableToParse) {

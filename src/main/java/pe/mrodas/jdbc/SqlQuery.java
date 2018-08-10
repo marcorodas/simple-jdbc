@@ -28,9 +28,8 @@ import java.util.Optional;
  * T obj = {@link #execute(Executor)}<br>{@code List<T>} list =
  * {@link #execute(ExecutorList)}<br>
  *
+ * @param <T> tipo devuelto por un método execute. Para {@link #execute()} se ignora.
  * @author Marco Rodas
- * @param <T> tipo devuelto por un método execute. Para {@link #execute()} o
- * {@link #executeResponse()} se ignora.
  */
 public class SqlQuery<T> extends DBLayer {
 
@@ -39,13 +38,13 @@ public class SqlQuery<T> extends DBLayer {
      */
     public interface Save {
 
-        public Save addField(String name, Object value) throws Exception;
+        Save addField(String name, Object value) throws Exception;
 
-        public int execute() throws Exception;
+        int execute() throws Exception;
 
-        public boolean isInsert();
+        boolean isInsert();
 
-        public default boolean isUpdate() {
+        default boolean isUpdate() {
             return !isInsert();
         }
 
@@ -61,8 +60,8 @@ public class SqlQuery<T> extends DBLayer {
      *  return obj;
      * }</code></pre>
      *
-     * @author Marco Rodas
      * @param <T> tipo devuelto por la implementación de esta clase
+     * @author Marco Rodas
      */
     public interface Executor<T> {
 
@@ -79,9 +78,9 @@ public class SqlQuery<T> extends DBLayer {
      *  }
      * }</code></pre>
      *
-     * @author Marco Rodas
      * @param <T> Tipo de elemento de la lista {@code List<T>} devuelta por esta
-     * clase
+     *            clase
+     * @author Marco Rodas
      */
     public interface ExecutorList<T> {
 
@@ -94,14 +93,14 @@ public class SqlQuery<T> extends DBLayer {
     }
 
     public enum AutoGenKey {
-        RETURN, NO_RETURN;
+        RETURN, NO_RETURN
     }
 
     private String query;
     private boolean returnGeneratedKeys;
     private final HashMap<String, Object> parameters = new HashMap<>();
     private final List<String> parameterNames = new ArrayList<>();
-    private Optional<String> nullParameter = null;
+    private Optional<String> nullParameter;
     private MapperConfig<T> config;
     private Class<T> clazz;
 
@@ -179,11 +178,11 @@ public class SqlQuery<T> extends DBLayer {
     /**
      * Agrega un nuevo parámetro definido con la sintaxis ":parameter"
      *
-     * @param name Nombre del parámetro. Sin ":" (key)
-     * @param value Valor del parámetro (value) <br><pre>
-     *  java.util.Date se considera TIMESTAMP (fecha y hora)
-     *  - Use un objeto LocalDate para tomar sólo la fecha
-     *  - Use un objeto LocalTime o Time para tomar sólo la hora</pre>
+     * @param name  Nombre del parámetro. Sin ":" (key)
+     * @param value Valor del parámetro (value) <br><br>
+     *  java.util.Date se considera TIMESTAMP (fecha y hora)<br>
+     *  - Use un objeto LocalDate para tomar sólo la fecha<br>
+     *  - Use un objeto LocalTime o Time para tomar sólo la hora
      *
      * @return El mismo objeto SqlQuery
      */
@@ -214,15 +213,16 @@ public class SqlQuery<T> extends DBLayer {
 
     private String prepareQuery() {
         String[] queryParts = query.split(":");
-        String preparedQuery = queryParts[0];
+        StringBuilder preparedQuery = new StringBuilder(queryParts[0]);
         for (int i = 1; i < queryParts.length; i++) {
             String queryPart = queryParts[i];
             int indexWordSeparator = this.getIndexWordSeparator(queryPart);
             String paramName = queryPart.substring(0, indexWordSeparator);
             parameterNames.add(paramName);
-            preparedQuery += "?" + queryPart.substring(indexWordSeparator, queryPart.length());
+            String part = queryPart.substring(indexWordSeparator, queryPart.length());
+            preparedQuery.append("?").append(part);
         }
-        return preparedQuery;
+        return preparedQuery.toString();
     }
 
     private void checkParameters() throws Exception {

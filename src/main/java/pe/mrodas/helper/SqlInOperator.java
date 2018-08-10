@@ -20,6 +20,8 @@ import java.util.stream.Stream;
  * inList.getParameters().forEach(query::addParameter);}</code><br><code>{@code
  * [...]query.execute...[...]
  * }</code>
+ *
+ * @author Marco Rodas
  */
 public class SqlInOperator<T> {
 

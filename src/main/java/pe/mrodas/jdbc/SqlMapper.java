@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- *
  * @author skynet
  */
 public class SqlMapper {
@@ -39,6 +38,7 @@ public class SqlMapper {
         return this;
     }
 
+    @SuppressWarnings("unchecked")
     public void apply() throws SQLException {
         for (int i = 0; i < setterList.size(); i++) {
             String columnName = columnNames.get(i);

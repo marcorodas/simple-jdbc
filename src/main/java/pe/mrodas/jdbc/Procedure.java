@@ -11,13 +11,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.AbstractMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import javafx.util.Pair;
+
 
 /**
  * Uso: <font color="yellow"><code>{@code
@@ -32,9 +33,9 @@ import javafx.util.Pair;
  * Response obj = {@link #callResponse(Executor)} /T/<br>
  * Response obj = {@link #callResponse(ExecutorList)} /{@code List<T>}/
  *
- * @author Marco Rodas
  * @param <T> tipo devuelto por un método call. Para {@link #call()} o
- * {@link #callResponse()} se ignora.
+ *            {@link #callResponse()} se ignora.
+ * @author Marco Rodas
  */
 public class Procedure<T> extends DBLayer {
 
@@ -52,8 +53,8 @@ public class Procedure<T> extends DBLayer {
      *  statement.get***(/parameterOutName/)
      * }</code></pre>
      *
-     * @author Marco Rodas
      * @param <T> tipo devuelto por la implementación de esta clase
+     * @author Marco Rodas
      */
     public interface Executor<T> {
 
@@ -74,8 +75,8 @@ public class Procedure<T> extends DBLayer {
      *  statement.get***(/parameterOutName/)
      * }</code></pre>
      *
-     * @author Marco Rodas
      * @param <T> tipo devuelto por la implementación de esta clase
+     * @author Marco Rodas
      */
     public interface ExecutorClass<T> {
 
@@ -95,9 +96,9 @@ public class Procedure<T> extends DBLayer {
      *  statement.get***(/parameterOutName/)
      * }</code></pre>
      *
-     * @author Marco Rodas
      * @param <T> Tipo de elemento de la lista {@code List<T>} devuelta por esta
-     * clase
+     *            clase
+     * @author Marco Rodas
      */
     public interface ExecutorList<T> {
 
@@ -105,7 +106,7 @@ public class Procedure<T> extends DBLayer {
     }
 
     private String procedureName;
-    private final HashMap<String, Pair<JDBCType, Object>> parametersIN = new HashMap<>();
+    private final HashMap<String, Map.Entry<JDBCType, Object>> parametersIN = new HashMap<>();
     private final HashMap<String, JDBCType> parametersOUT = new HashMap<>();
 
     public Procedure() {
@@ -116,7 +117,6 @@ public class Procedure<T> extends DBLayer {
     }
 
     /**
-     *
      * @param name Nombre del storedProcedure sin adicionales {}, CALL, "", etc
      * @return el mismo objeto Procedure
      */
@@ -138,13 +138,12 @@ public class Procedure<T> extends DBLayer {
     /**
      * Agrega un nuevo parametro tipo IN
      *
-     * @param name Nombre del parametro (key)
-     * @param value Valor del Parametro <br><pre>
-     *  java.util.Date se considera TIMESTAMP
-     *  (fecha y hora), salvo se indique
-     *  - JDBCType.DATE para tomar sólo la fecha
-     *  - JDBCType.TIME para tomar sólo la hora</pre>
-     *
+     * @param name    Nombre del parametro (key)
+     * @param value   Valor del Parametro <br><pre>
+     *                                               java.util.Date se considera TIMESTAMP
+     *                                               (fecha y hora), salvo se indique
+     *                                               - JDBCType.DATE para tomar sólo la fecha
+     *                                               - JDBCType.TIME para tomar sólo la hora</pre>
      * @param sqlType Tipo de parametro
      * @return El mismo objeto Procedure
      */
@@ -163,14 +162,14 @@ public class Procedure<T> extends DBLayer {
                     break;
             }
         }
-        parametersIN.put(name, new Pair<>(sqlType, value));
+        parametersIN.put(name, new AbstractMap.SimpleEntry<>(sqlType, value));
         return this;
     }
 
     /**
      * Agrega un nuevo parametro tipo OUT
      *
-     * @param name Nombre del Parametro (key)
+     * @param name    Nombre del Parametro (key)
      * @param sqlType Tipo de parametro
      * @return El mismo objeto Procedure
      */
@@ -223,8 +222,8 @@ public class Procedure<T> extends DBLayer {
         String parameter = isOUT
                 ? String.format("OUT, name:%s, type:%s", name, type)
                 : (value == null
-                        ? String.format("IN, name:%s, value:NULL, type:%s", name, type)
-                        : String.format("IN, name:%s, value:%s", name, value));
+                ? String.format("IN, name:%s, value:NULL, type:%s", name, type)
+                : String.format("IN, name:%s, value:%s", name, value));
         return String.format("Parameter(%s)", parameter);
     }
 
@@ -234,9 +233,9 @@ public class Procedure<T> extends DBLayer {
         Object value = null;
         boolean isOUT = false;
         try {
-            for (Map.Entry<String, Pair<JDBCType, Object>> entry : parametersIN.entrySet()) {
+            for (Map.Entry<String, Map.Entry<JDBCType, Object>> entry : parametersIN.entrySet()) {
                 name = entry.getKey();
-                Pair<JDBCType, Object> pair = entry.getValue();
+                Map.Entry<JDBCType, Object> pair = entry.getValue();
                 value = pair.getValue();
                 if (value == null) {
                     jdbcType = pair.getKey();
@@ -307,16 +306,15 @@ public class Procedure<T> extends DBLayer {
     public T call(Executor<T> executor) throws Exception {
         Adapter.checkNotNull(executor, whoIam(), "El objecto executor no puede ser nulo");
         CallableStatement statement = executeStatement();
-        T result = null;
         try {
-            result = executor.execute(statement.getResultSet());
+            T result = executor.execute(statement.getResultSet());
             Adapter.checkIsNotList(result, whoIam(), Adapter.getErrorTypeIsList());
+            return result;
         } catch (Exception e) {
             throw Adapter.getException(e, whoIam());
         } finally {
             closeConnection();
         }
-        return result;
     }
 
     public T call(Class<T> clazz, ExecutorClass<T> executor) throws Exception {
