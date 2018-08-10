@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  * Convenience class to handle IN operator in WHERE clause.
  * Designed to work with a list or stream of INTEGER ids.<br><br>
  * Sample Use: <br><code>{@code
- * SqlInOperator inList = new SqlInOperator(listOfIntegers);}</code><br><code>{@code
+ * SqlInOperator<Integer> inList = new SqlInOperator<>(listOfIntegers);}</code><br><code>{@code
  * String sql = "SELECT field FROM table WHERE intField IN" + inList;}</code><br><code>{@code
  * SqlQuery<SampleClass> query = new SqlQuery<>().setSql(sql);}</code><br><code>{@code
  * [...]}</code><br><code>{@code
@@ -21,23 +21,23 @@ import java.util.stream.Stream;
  * [...]query.execute...[...]
  * }</code>
  */
-public class SqlInOperator {
+public class SqlInOperator<T> {
 
     private final String prefix = "id" + Generators.timeBasedGenerator().generate().clockSequence();
     private final String fields;
-    private final Map<String, Integer> parameters = new HashMap<>();
+    private final Map<String, T> parameters = new HashMap<>();
 
-    public SqlInOperator(List<Integer> ids) {
+    public SqlInOperator(List<T> list) {
         fields = IntStream
-                .range(0, ids.size())
+                .range(0, list.size())
                 .mapToObj(i -> ":" + prefix + i)
                 .collect(Collectors.joining(","));
-        for (int i = 0; i < ids.size(); i++) {
-            parameters.put(prefix + i, ids.get(i));
+        for (int i = 0; i < list.size(); i++) {
+            parameters.put(prefix + i, list.get(i));
         }
     }
 
-    public SqlInOperator(Stream<Integer> ids) {
+    public SqlInOperator(Stream<T> ids) {
         this(ids.collect(Collectors.toList()));
     }
 
@@ -46,7 +46,7 @@ public class SqlInOperator {
         return String.format("(%s)", fields);
     }
 
-    public Map<String, Integer> getParameters() {
+    public Map<String, T> getParameters() {
         return parameters;
     }
 }
