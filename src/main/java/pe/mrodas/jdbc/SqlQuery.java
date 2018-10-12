@@ -263,8 +263,9 @@ public class SqlQuery<T> extends DBLayer {
                 } else if (objClass == Float.class) {
                     statement.setFloat(index, (Float) value);
                 } else if (value instanceof Date) {
-                    LocalDateTime localDateTime = ((Date) value).toInstant()
-                            .atOffset(zoneOffset).toLocalDateTime();
+                    LocalDateTime localDateTime = ((Date) value)
+                            .toInstant().atOffset(zoneOffset)
+                            .toLocalDateTime();
                     statement.setObject(index, localDateTime);
                 } else if (value instanceof Temporal) {
                     statement.setObject(index, value);
