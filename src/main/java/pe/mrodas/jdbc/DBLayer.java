@@ -11,7 +11,6 @@ import java.util.Optional;
 import java.util.Properties;
 
 /**
- *
  * @author Marco Rodas
  */
 public abstract class DBLayer {
@@ -111,7 +110,7 @@ public abstract class DBLayer {
          * }</pre>
          *
          * @param propertyFile Nombre de archivo de propiedades ej:
-         * "db.properties"
+         *                     "db.properties"
          */
         public static void configureWithPropFile(String propertyFile) {
             instance = null;
@@ -125,7 +124,7 @@ public abstract class DBLayer {
          *
          * @return Connection
          * @throws Exception Si no se puede leer el archivo de propiedades o no
-         * se puede conectar
+         *                   se puede conectar
          */
         public Connection getConnection() throws Exception {
             return DriverManager.getConnection(url, dbInfo);

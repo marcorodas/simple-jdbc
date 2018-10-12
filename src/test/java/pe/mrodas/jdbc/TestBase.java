@@ -16,12 +16,12 @@ public abstract class TestBase {
 
     protected abstract String getDefaultConfigFile();
 
-    public void config(String fileName) {
+    private void config(String fileName) {
         DBLayer.Connector.configureWithPropFile(fileName);
     }
 
     @Before
-    public void init() throws IOException {
+    public void init() {
         String fileName = this.getDefaultConfigFile();
         this.config(fileName == null ? "db.default.properties" : fileName);
     }
@@ -33,7 +33,7 @@ public abstract class TestBase {
             Driver driver = drivers.nextElement();
             try {
                 DriverManager.deregisterDriver(driver);
-            } catch (SQLException e) {
+            } catch (SQLException ignored) {
             }
         }
     }

@@ -11,11 +11,14 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 
 /**
  * Uso: <font color="yellow"><code>{@code
@@ -100,9 +103,11 @@ public class SqlQuery<T> extends DBLayer {
     private boolean returnGeneratedKeys;
     private final HashMap<String, Object> parameters = new HashMap<>();
     private final List<String> parameterNames = new ArrayList<>();
+    private final Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
     private Optional<String> nullParameter;
     private MapperConfig<T> config;
     private Class<T> clazz;
+
 
     public SqlQuery() {
     }
@@ -180,10 +185,9 @@ public class SqlQuery<T> extends DBLayer {
      *
      * @param name  Nombre del parámetro. Sin ":" (key)
      * @param value Valor del parámetro (value) <br><br>
-     *  java.util.Date se considera TIMESTAMP (fecha y hora)<br>
-     *  - Use un objeto LocalDate para tomar sólo la fecha<br>
-     *  - Use un objeto LocalTime o Time para tomar sólo la hora
-     *
+     *              java.util.Date se considera TIMESTAMP (fecha y hora)<br>
+     *              - Use un objeto LocalDate para tomar sólo la fecha<br>
+     *              - Use un objeto LocalTime o Time para tomar sólo la hora
      * @return El mismo objeto SqlQuery
      */
     public SqlQuery<T> addParameter(String name, Object value) {
@@ -247,7 +251,7 @@ public class SqlQuery<T> extends DBLayer {
             try {
                 Class objClass = value.getClass();
                 if (objClass.isArray()) {
-                    registerArrayParameter(statement, index, value);
+                    this.registerArrayParameter(statement, index, value);
                 } else if (objClass == Integer.class) {
                     statement.setInt(index, (Integer) value);
                 } else if (objClass == String.class) {
@@ -258,16 +262,10 @@ public class SqlQuery<T> extends DBLayer {
                     statement.setDouble(index, (Double) value);
                 } else if (objClass == Float.class) {
                     statement.setFloat(index, (Float) value);
-                } else if (objClass == Time.class) {
-                    statement.setTime(index, (Time) value);
-                } else if (objClass == Timestamp.class) {
-                    statement.setTimestamp(index, (Timestamp) value);
-                } else if (objClass == LocalDate.class) {
-                    statement.setDate(index, java.sql.Date.valueOf((LocalDate) value));
-                } else if (objClass == LocalTime.class) {
-                    statement.setTime(index, Time.valueOf((LocalTime) value));
-                } else if (objClass == LocalDateTime.class) {
-                    statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value));
+                } else if (value instanceof Date) {
+                    this.registerDate(statement, index, objClass, value);
+                } else if (value instanceof Temporal) {
+                    this.registerTemporal(statement, index, objClass, value);
                 } else if (value instanceof InputStream) {
                     statement.setBlob(index, (InputStream) value);
                 }
@@ -275,6 +273,39 @@ public class SqlQuery<T> extends DBLayer {
                 throw Adapter.getException(e, this.whoIam(), name, value.toString());
             }
         }
+    }
+
+    private void registerTemporal(PreparedStatement statement, int index, Class objClass, Object value) throws SQLException {
+        if (objClass == LocalDate.class) {
+            LocalDate localDate = (LocalDate) value;
+            statement.setObject(index, localDate);
+        } else if (objClass == LocalTime.class) {
+            LocalTime localTime = (LocalTime) value;
+            statement.setObject(index, localTime);
+        } else if (objClass == LocalDateTime.class) {
+            LocalDateTime localDateTime = (LocalDateTime) value;
+            statement.setObject(index, localDateTime);
+        }
+    }
+
+    private void registerDate(PreparedStatement statement, int index, Class objClass, Object value) throws SQLException {
+        if (objClass == Date.class) {
+            LocalDateTime localDateTime = ((Date) value).toInstant()
+                    .atZone(calendar.getTimeZone().toZoneId())
+                    .toLocalDateTime();
+            statement.setObject(index, localDateTime);
+        } else if (objClass == java.sql.Date.class) {
+            statement.setDate(index, (java.sql.Date) value, calendar);
+        } else if (objClass == Time.class) {
+            statement.setTime(index, (Time) value, calendar);
+        } else if (objClass == Timestamp.class) {
+            statement.setTimestamp(index, (Timestamp) value, calendar);
+        }
+    }
+
+    public SqlQuery<T> setTimeZone(TimeZone timeZone) {
+        calendar.setTimeZone(timeZone);
+        return this;
     }
 
     private void registerArrayParameter(PreparedStatement statement, int index, Object obj) throws Exception {
