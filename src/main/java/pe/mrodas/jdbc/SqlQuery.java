@@ -6,16 +6,21 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.temporal.Temporal;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 
 /**
  * Uso: <font color="yellow"><code>{@code
@@ -104,6 +109,7 @@ public class SqlQuery<T> extends DBLayer {
     private MapperConfig<T> config;
     private Class<T> clazz;
     private ZoneOffset zoneOffset = ZoneOffset.UTC;
+    private Calendar calendar = this.getCalendar(zoneOffset);
 
     public SqlQuery() {
     }
@@ -241,7 +247,20 @@ public class SqlQuery<T> extends DBLayer {
 
     public SqlQuery<T> setZoneOffset(ZoneOffset zoneOffset) {
         this.zoneOffset = zoneOffset;
+        this.calendar = this.getCalendar(zoneOffset);
         return this;
+    }
+
+    private Calendar getCalendar(ZoneOffset zoneOffset) {
+        ZoneId zoneId = ZoneId.ofOffset("", zoneOffset);
+        return Calendar.getInstance(TimeZone.getTimeZone(zoneId));
+    }
+
+    private Timestamp getTimestamp(Date date, ZoneOffset zoneOffset) {
+        LocalDateTime localDateTime = Instant.ofEpochMilli(date.getTime())
+                .atOffset(zoneOffset)
+                .toLocalDateTime();
+        return Timestamp.valueOf(localDateTime);
     }
 
     private void registerParameters(PreparedStatement statement) throws Exception {
@@ -264,13 +283,13 @@ public class SqlQuery<T> extends DBLayer {
                 } else if (objClass == Float.class) {
                     statement.setFloat(index, (Float) value);
                 } else if (value instanceof Date) {
-                    long time = ((Date) value).getTime();
-                    LocalDateTime localDateTime = Instant.ofEpochMilli(time)
-                            .atOffset(zoneOffset)
-                            .toLocalDateTime();
-                    statement.setObject(index, localDateTime);
-                } else if (value instanceof Temporal) {
-                    statement.setObject(index, value);
+                    statement.setTimestamp(index, this.getTimestamp((Date) value, zoneOffset), calendar);
+                } else if (objClass == LocalDateTime.class) {
+                    statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value), calendar);
+                } else if (objClass == LocalDate.class) {
+                    statement.setDate(index, java.sql.Date.valueOf((LocalDate) value), calendar);
+                } else if (objClass == LocalTime.class) {
+                    statement.setTime(index, Time.valueOf((LocalTime) value), calendar);
                 } else if (value instanceof InputStream) {
                     statement.setBlob(index, (InputStream) value);
                 }
