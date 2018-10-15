@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
@@ -263,8 +264,9 @@ public class SqlQuery<T> extends DBLayer {
                 } else if (objClass == Float.class) {
                     statement.setFloat(index, (Float) value);
                 } else if (value instanceof Date) {
-                    LocalDateTime localDateTime = ((Date) value)
-                            .toInstant().atOffset(zoneOffset)
+                    long time = ((Date) value).getTime();
+                    LocalDateTime localDateTime = Instant.ofEpochMilli(time)
+                            .atOffset(zoneOffset)
                             .toLocalDateTime();
                     statement.setObject(index, localDateTime);
                 } else if (value instanceof Temporal) {
