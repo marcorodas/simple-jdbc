@@ -6,18 +6,15 @@ import java.sql.Connection;
 import java.sql.JDBCType;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
 import java.util.AbstractMap;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -30,11 +27,8 @@ import java.util.Date;
  * Procedure<ElementType> proc = new Procedure<>();}</code></font><br>
  * T obj = {@link #call(Executor)}<br>{@code List<T>} list =
  * {@link #call(ExecutorList)}<br>
- * Response obj = {@link #callResponse(Executor)} /T/<br>
- * Response obj = {@link #callResponse(ExecutorList)} /{@code List<T>}/
  *
- * @param <T> tipo devuelto por un método call. Para {@link #call()} o
- *            {@link #callResponse()} se ignora.
+ * @param <T> tipo devuelto por un método call. Para {@link #call()} se ignora.
  * @author Marco Rodas
  */
 public class Procedure<T> extends DBLayer {
@@ -125,6 +119,11 @@ public class Procedure<T> extends DBLayer {
         return this;
     }
 
+    public Procedure<T> setTimeZoneOffset(ZoneOffset zoneOffset) {
+        super.setZoneOffset(zoneOffset);
+        return this;
+    }
+
     /**
      * Devuelve el nombre del procedure con formato
      *
@@ -139,28 +138,18 @@ public class Procedure<T> extends DBLayer {
      * Agrega un nuevo parametro tipo IN
      *
      * @param name    Nombre del parametro (key)
-     * @param value   Valor del Parametro <br><pre>
-     *                                               java.util.Date se considera TIMESTAMP
-     *                                               (fecha y hora), salvo se indique
-     *                                               - JDBCType.DATE para tomar sólo la fecha
-     *                                               - JDBCType.TIME para tomar sólo la hora</pre>
+     * @param value   Valor del Parametro <br>
+     *                Una instancia de {@link Date} se considera {@link java.sql.Timestamp} (fecha y hora), localizado
+     *                en {@link #zoneOffset} (por defecto UTC, modificable con {@link #setTimeZoneOffset(ZoneOffset)}),
+     *                salvo se indique<br>
+     *                - <code>JDBCType.DATE</code> para tomar sólo la fecha<br>
+     *                - <code>JDBCType.TIME</code> para tomar sólo la hora
      * @param sqlType Tipo de parametro
      * @return El mismo objeto Procedure
      */
     public Procedure<T> addParameter(String name, Object value, JDBCType sqlType) {
-        if (null != sqlType && value != null && value.getClass() == Date.class) {
-            Date date = (Date) value;
-            switch (sqlType) {
-                case DATE:
-                    value = new java.sql.Date(date.getTime());
-                    break;
-                case TIME:
-                    value = new Time(date.getTime());
-                    break;
-                default:
-                    value = new Timestamp(date.getTime());
-                    break;
-            }
+        if (value instanceof Date) {
+            value = super.dateToTemporal((Date) value, sqlType);
         }
         parametersIN.put(name, new AbstractMap.SimpleEntry<>(sqlType, value));
         return this;
@@ -178,15 +167,6 @@ public class Procedure<T> extends DBLayer {
         return this;
     }
 
-    private void registerArrayParameter(CallableStatement statement, String name, Object obj) throws Exception {
-        Class componentType = obj.getClass().getComponentType();
-        if (componentType != null && componentType.isPrimitive()) {
-            if (byte.class.isAssignableFrom(componentType)) {
-                statement.setBytes(name, (byte[]) obj);
-            }
-        }
-    }
-
     private void registerInParameter(CallableStatement statement, String name, Object value) throws Exception {
         Class objClass = value.getClass();
         if (objClass.isArray()) {
@@ -201,20 +181,19 @@ public class Procedure<T> extends DBLayer {
             statement.setDouble(name, (Double) value);
         } else if (objClass == Float.class) {
             statement.setFloat(name, (Float) value);
-        } else if (objClass == java.sql.Date.class) {
-            statement.setDate(name, (java.sql.Date) value);
-        } else if (objClass == Time.class) {
-            statement.setTime(name, (Time) value);
-        } else if (objClass == Timestamp.class) {
-            statement.setTimestamp(name, (Timestamp) value);
-        } else if (objClass == LocalDate.class) {
-            statement.setDate(name, java.sql.Date.valueOf((LocalDate) value));
-        } else if (objClass == LocalTime.class) {
-            statement.setTime(name, Time.valueOf((LocalTime) value));
-        } else if (objClass == LocalDateTime.class) {
-            statement.setTimestamp(name, Timestamp.valueOf((LocalDateTime) value));
+        } else if (value instanceof Temporal) {
+            super.setTemporal(statement, name, value, objClass);
         } else if (objClass == InputStream.class) {
             statement.setBlob(name, (InputStream) value);
+        }
+    }
+
+    private void registerArrayParameter(CallableStatement statement, String name, Object obj) throws Exception {
+        Class componentType = obj.getClass().getComponentType();
+        if (componentType != null && componentType.isPrimitive()) {
+            if (byte.class.isAssignableFrom(componentType)) {
+                statement.setBytes(name, (byte[]) obj);
+            }
         }
     }
 
@@ -235,13 +214,12 @@ public class Procedure<T> extends DBLayer {
         try {
             for (Map.Entry<String, Map.Entry<JDBCType, Object>> entry : parametersIN.entrySet()) {
                 name = entry.getKey();
-                Map.Entry<JDBCType, Object> pair = entry.getValue();
-                value = pair.getValue();
+                value = entry.getValue().getValue();
                 if (value == null) {
-                    jdbcType = pair.getKey();
+                    jdbcType = entry.getValue().getKey();
                     statement.setNull(name, jdbcType.getVendorTypeNumber());
                 } else {
-                    registerInParameter(statement, name, value);
+                    this.registerInParameter(statement, name, value);
                 }
             }
             isOUT = true;

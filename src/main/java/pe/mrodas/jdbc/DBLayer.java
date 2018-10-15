@@ -2,13 +2,29 @@ package pe.mrodas.jdbc;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.JDBCType;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 
 /**
  * @author Marco Rodas
@@ -145,6 +161,8 @@ public abstract class DBLayer {
     protected Connection connection = null;
     private final boolean connectionProvided;
     private boolean autoCloseConnection = true;
+    private ZoneOffset zoneOffset = ZoneOffset.UTC;
+    private Calendar calendar = this.getCalendar(zoneOffset);
 
     public DBLayer(Connection connection, boolean autoCloseConnection) {
         this.connection = connection;
@@ -179,6 +197,60 @@ public abstract class DBLayer {
             } catch (SQLException ex) {
                 System.err.println(ex);
             }
+        }
+    }
+
+    private Calendar getCalendar(ZoneOffset zoneOffset) {
+        ZoneId zoneId = ZoneId.ofOffset("", zoneOffset);
+        return Calendar.getInstance(TimeZone.getTimeZone(zoneId));
+    }
+
+    void setZoneOffset(ZoneOffset zoneOffset) {
+        this.zoneOffset = zoneOffset;
+        this.calendar = this.getCalendar(zoneOffset);
+    }
+
+    private OffsetDateTime getOffsetDateTime(Date date) {
+        return Instant.ofEpochMilli(date.getTime()).atOffset(zoneOffset);
+    }
+
+    /**
+     * Devuelve una fecha localizada en {@link #zoneOffset} por defecto es <code>UTC</code>.
+     *
+     * @param date    fecha a convertir
+     * @param sqlType Indicador de conversión<br>
+     *                <code>JDBCType.DATE</code> para {@link java.time.LocalDate}<br>
+     *                <code>JDBCType.TIME</code> para {@link java.time.LocalTime}<br>
+     *                Cualquier otro valor para {@link java.time.LocalDateTime}
+     * @return Un objeto {@link java.time.temporal.Temporal} según el parámetro <code>sqlType</code>
+     */
+    public Temporal dateToTemporal(Date date, JDBCType sqlType) {
+        if (sqlType == JDBCType.DATE) {
+            return this.getOffsetDateTime(date).toLocalDate();
+        } else if (sqlType == JDBCType.TIME) {
+            return this.getOffsetDateTime(date).toLocalTime();
+        } else {
+            return this.getOffsetDateTime(date).toLocalDateTime();
+        }
+    }
+
+    void setTemporal(PreparedStatement statement, int index, Object value, Class objClass) throws SQLException {
+        if (objClass == LocalDateTime.class) {
+            statement.setTimestamp(index, Timestamp.valueOf((LocalDateTime) value), calendar);
+        } else if (objClass == LocalDate.class) {
+            statement.setDate(index, java.sql.Date.valueOf((LocalDate) value), calendar);
+        } else if (objClass == LocalTime.class) {
+            statement.setTime(index, Time.valueOf((LocalTime) value), calendar);
+        }
+    }
+
+    void setTemporal(CallableStatement statement, String parameterName, Object value, Class objClass) throws SQLException {
+        if (objClass == LocalDateTime.class) {
+            statement.setTimestamp(parameterName, Timestamp.valueOf((LocalDateTime) value), calendar);
+        } else if (objClass == LocalDate.class) {
+            statement.setDate(parameterName, java.sql.Date.valueOf((LocalDate) value), calendar);
+        } else if (objClass == LocalTime.class) {
+            statement.setTime(parameterName, Time.valueOf((LocalTime) value), calendar);
         }
     }
 
