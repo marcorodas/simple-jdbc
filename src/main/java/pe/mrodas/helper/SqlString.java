@@ -6,8 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Convenience class to handle 2 situations:
@@ -24,6 +26,10 @@ public class SqlString {
         this.lines = Files.readAllLines(Paths.get(file), Charset.defaultCharset());
     }
 
+    public SqlString(String... lines) {
+        this.lines = Arrays.asList(lines);
+    }
+
     public String toStrArray() {
         return lines.stream().map(s -> "\"" + s + "\"")
                 .collect(Collectors.joining(",\n"));
@@ -36,6 +42,16 @@ public class SqlString {
             int endIndex = i == lines.size() - 1 ? 1 : 2;
             sqlLines.add(line.substring(1, line.length() - endIndex));
         }
-        return sqlLines.stream().collect(Collectors.joining("\n"));
+        return String.join("\n", sqlLines);
+    }
+
+    public static String arrayToSql(String... strings) {
+        return String.join("\n", strings);
+    }
+
+    public static String strToSqlArray(String sql) {
+        String arr = Stream.of(sql.split("\n")).map(s -> "\"" + s + "\"")
+                .collect(Collectors.joining(",\n"));
+        return String.format("new String[]{\n%s\n}", arr);
     }
 }
