@@ -46,11 +46,11 @@ public class SqlInOperator<T> {
             List<T> list = ids.filter(Objects::nonNull).collect(Collectors.toList());
             if (list.isEmpty()) parameters = null;
             else {
-                String prefix = "id" + Generators.timeBasedGenerator().generate().clockSequence();
                 if (list.size() == 1) {
-                    fields = ":" + prefix + "0";
-                    parameters = Collections.singletonMap(prefix + "0", list.get(0));
+                    fields = ":id0";
+                    parameters = Collections.singletonMap("id0", list.get(0));
                 } else {
+                    String prefix = "id" + Generators.timeBasedGenerator().generate().clockSequence();
                     fields = IntStream.range(0, list.size())
                             .mapToObj(i -> ":" + prefix + i)
                             .collect(Collectors.joining(","));
