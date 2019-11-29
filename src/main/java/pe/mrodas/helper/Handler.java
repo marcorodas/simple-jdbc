@@ -5,17 +5,10 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import pe.mrodas.db.helper.ThrowingBiFunction;
+import pe.mrodas.db.helper.ThrowingFunction;
+
 public class Handler {
-
-    @FunctionalInterface
-    public interface ThrowingFunction<T, R> {
-        R apply(T arg) throws Exception;
-    }
-
-    @FunctionalInterface
-    public interface ThrowingBiFunction<S, T, R> {
-        R apply(S arg1, T arg2) throws Exception;
-    }
 
     public static <T, R> List<R> handle(ThrowingFunction<T[], List<R>> function, T[] input, Consumer<Exception> onError) {
         try {

@@ -56,8 +56,8 @@ public class SqlUpdate {
         SqlQuery<?> sqlQuery = (connection == null ? new SqlQuery<>()
                 : new SqlQuery<>(connection, autoclose == null ? Autoclose.YES : autoclose));
         String preparedQuery = QUERY.replace("<table>", table)
-                .replace("<fields>", String.join(", ", this.fields))
-                .replace("<filters>", String.join(" AND ", this.filters));
+                .replace("<fields>", String.join(", ", fields))
+                .replace("<filters>", String.join(" AND ", filters));
         sqlQuery.setSql(preparedQuery);
         this.fieldsMap.forEach(sqlQuery::addParameter);
         this.filtersMap.forEach(sqlQuery::addParameter);
